@@ -1,4 +1,5 @@
 const User = require("../models/User");
+const Product = require("../models/Product");
 const bcryptjs = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
@@ -16,6 +17,22 @@ const resolvers = {
       // must be the same secretKey as in createToken to verify the token
       const userId = await jwt.verify(token, process.env.SECRET_KEY);
       return userId;
+    },
+    getProducts: async () => {
+      try {
+        const products = await Product.find({});
+        return products;
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    getProduct: async (_, { id }) => {
+      // check if product exists
+      const product = await Product.findById(id);
+      if (!product) {
+        throw new Error("Product not found");
+      }
+      return product;
     },
   },
   Mutation: {
@@ -53,6 +70,39 @@ const resolvers = {
       }
       // create token
       return { token: createToken(user, process.env.SECRET_KEY, "24h") };
+    },
+    newProduct: async (_, { input }) => {
+      try {
+        const newProduct = new Product(input);
+        const result = await newProduct.save();
+        console.log("Product created");
+        return result;
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    updateProduct: async (_, { id, input }) => {
+      // check if product exists
+      let product = await Product.findById(id);
+      if (!product) {
+        throw new Error("Product not found");
+      }
+
+      // update product in db
+      product = await Product.findOneAndUpdate({ _id: id }, input, {
+        new: true,
+      });
+      return product;
+    },
+    deleteProduct: async (_, { id }) => {
+      // check if product exists
+      const product = await Product.findById(id);
+      if (!product) {
+        throw new Error("Product not found");
+      }
+      // delete product from db
+      await Product.findOneAndDelete({ _id: id });
+      return "Product deleted";
     },
   },
 };
