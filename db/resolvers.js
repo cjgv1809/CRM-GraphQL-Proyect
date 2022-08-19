@@ -1,33 +1,21 @@
 const User = require("../models/User");
 const bcryptjs = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+require("dotenv").config();
 
-const courses = [
-  {
-    title: "JavaScript Moderno Guía Definitiva Construye +10 Proyectos",
-    technology: "JavaScript ES6",
-  },
-  {
-    title: "React – La Guía Completa: Hooks Context Redux MERN +15 Apps",
-    technology: "React",
-  },
-  {
-    title: "Node.js – Bootcamp Desarrollo Web inc. MVC y REST API’s",
-    technology: "Node.js",
-  },
-  {
-    title: "ReactJS Avanzado – FullStack React GraphQL y Apollo",
-    technology: "React",
-  },
-];
+const createToken = (user, secret, expiresIn) => {
+  const { id, name, lastName, email } = user;
+  // params: payload, secretWord, expiresInTime
+  return jwt.sign({ id, name, lastName, email }, secret, { expiresIn });
+};
 
 // resolvers
 const resolvers = {
   Query: {
-    getCourses: (_, { input }, ctx, info) => {
-      const result = courses.filter((course) => {
-        return course.technology === input.technology;
-      });
-      return result;
+    getUser: async (_, { token }) => {
+      // must be the same secretKey as in createToken to verify the token
+      const userId = await jwt.verify(token, process.env.SECRET_KEY);
+      return userId;
     },
   },
   Mutation: {
@@ -51,6 +39,20 @@ const resolvers = {
       } catch (error) {
         console.log(error);
       }
+    },
+    authenticateUser: async (_, { input }) => {
+      // check if user exists
+      const user = await User.findOne({ email: input.email });
+      if (!user) {
+        throw new Error("User not found");
+      }
+      // check if password is correct
+      const isMatch = await bcryptjs.compare(input.password, user.password);
+      if (!isMatch) {
+        throw new Error("Password incorrect");
+      }
+      // create token
+      return { token: createToken(user, process.env.SECRET_KEY, "24h") };
     },
   },
 };

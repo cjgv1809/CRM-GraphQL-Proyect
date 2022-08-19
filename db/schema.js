@@ -3,14 +3,6 @@ const { gql } = require("apollo-server");
 // schema
 // ! means that this is a required field
 const typeDefs = gql`
-  type Course {
-    title: String
-  }
-
-  type Technology {
-    technology: String
-  }
-
   type User {
     id: ID
     name: String
@@ -19,8 +11,8 @@ const typeDefs = gql`
     createdAt: String
   }
 
-  input CourseInput {
-    technology: String
+  type Token {
+    token: String
   }
 
   input UserInput {
@@ -30,13 +22,18 @@ const typeDefs = gql`
     password: String!
   }
 
+  input AuthenticateInput {
+    email: String!
+    password: String!
+  }
+
   type Query {
-    getCourses(input: CourseInput!): [Course]
-    getTechnologies: [Technology]
+    getUser(token: String!): User
   }
 
   type Mutation {
     newUser(input: UserInput): User
+    authenticateUser(input: AuthenticateInput): Token
   }
 `;
 
