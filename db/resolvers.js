@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const Product = require("../models/Product");
 const Client = require("../models/Client");
+const Order = require("../models/Order");
 const bcryptjs = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
@@ -62,6 +63,43 @@ const resolvers = {
         throw new Error("Not authorized");
       }
       return client;
+    },
+    getOrders: async () => {
+      try {
+        const orders = await Order.find({});
+        return orders;
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    getOrdersBySeller: async (_, {}, ctx) => {
+      try {
+        const orders = await Order.find({ seller: ctx.user.id });
+        return orders;
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    getOrder: async (_, { id }, ctx) => {
+      // check if order exists
+      const order = await Order.findById(id);
+      if (!order) {
+        throw new Error("Order not found");
+      }
+
+      // the seller who created the order is the only one who can see it
+      if (order.seller.toString() !== ctx.user.id) {
+        throw new Error("Not authorized");
+      }
+      return order;
+    },
+    getOrdersByStatus: async (_, { status }, ctx) => {
+      try {
+        const orders = await Order.find({ seller: ctx.user.id, status });
+        return orders;
+      } catch (error) {
+        console.log(error);
+      }
     },
   },
   Mutation: {
@@ -184,6 +222,101 @@ const resolvers = {
       // delete client from db
       await Client.findOneAndDelete({ _id: id });
       return "Client deleted";
+    },
+    newOrder: async (_, { input }, ctx) => {
+      // check if client exists
+      const client = await Client.findById(input.client);
+      if (!client) {
+        throw new Error("Client not found");
+      }
+
+      // the seller who created the client is the only one who can create an order
+      if (client.seller.toString() !== ctx.user.id) {
+        throw new Error("Not authorized");
+      }
+
+      // check stock first using async operator
+      for await (const item of input.order) {
+        const { id } = item;
+        const product = await Product.findById(id);
+        if (item.quantity > product.stock) {
+          throw new Error(`The item ${product.name} has insufficient stock`);
+        } else {
+          // subtract stock from product
+          product.stock = product.stock - item.quantity;
+          await product.save();
+        }
+      }
+
+      // create order
+      const newOrder = new Order(input);
+
+      // assign seller to order
+      newOrder.seller = ctx.user.id;
+
+      try {
+        // Save Order in db
+        const result = await newOrder.save();
+        console.log("Order created");
+        return result;
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    updateOrder: async (_, { id, input }, ctx) => {
+      // check if order exists
+      let order = await Order.findById(id);
+      if (!order) {
+        throw new Error("Order not found");
+      }
+
+      // check if client exists
+      const client = await Client.findById(input.client);
+      if (!client) {
+        throw new Error("Client not found");
+      }
+
+      // the seller who created the order is the only one who can update it
+      if (order.seller.toString() !== ctx.user.id) {
+        throw new Error("Not authorized");
+      }
+
+      // check stock first using async operator
+      if (input.order) {
+        for await (const item of input.order) {
+          const { id } = item;
+          const product = await Product.findById(id);
+          if (item.quantity > product.stock) {
+            throw new Error(`The item ${product.name} has insufficient stock`);
+          } else {
+            // subtract stock from product
+            product.stock = product.stock - item.quantity;
+            await product.save();
+          }
+        }
+      }
+
+      // update order in db
+      const result = await Order.findOneAndUpdate({ _id: id }, input, {
+        new: true,
+      });
+      return result;
+    },
+    deleteOrder: async (_, { id }, ctx) => {
+      // check if order exists
+      const order = await Order.findById(id);
+      if (!order) {
+        throw new Error("Order not found");
+      }
+
+      // the seller who created the order is the only one who can delete it
+      if (order.seller.toString() !== ctx.user.id) {
+        throw new Error("Not authorized");
+      }
+
+      // delete order from db
+      await Order.findOneAndDelete({ _id: id });
+      return "Order deleted";
     },
   },
 };
