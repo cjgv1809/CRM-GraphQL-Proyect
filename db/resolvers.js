@@ -1,5 +1,6 @@
 const User = require("../models/User");
 const Product = require("../models/Product");
+const Client = require("../models/Client");
 const bcryptjs = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
@@ -33,6 +34,34 @@ const resolvers = {
         throw new Error("Product not found");
       }
       return product;
+    },
+    getClients: async () => {
+      try {
+        const clients = await Client.find({});
+        return clients;
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    getClientsBySeller: async (_, {}, ctx) => {
+      try {
+        const clients = await Client.find({ seller: ctx.user.id.toString() });
+        return clients;
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    getClient: async (_, { id }, ctx) => {
+      // check if client exists
+      const client = await Client.findById(id);
+      if (!client) {
+        throw new Error("Client not found");
+      }
+      // the seller who created the client is the only one who can see it
+      if (client.seller.toString() !== ctx.user.id) {
+        throw new Error("Not authorized");
+      }
+      return client;
     },
   },
   Mutation: {
@@ -103,6 +132,58 @@ const resolvers = {
       // delete product from db
       await Product.findOneAndDelete({ _id: id });
       return "Product deleted";
+    },
+    newClient: async (_, { input }, ctx) => {
+      // check if client exists
+      const client = await Client.findOne({ email: input.email });
+      if (client) {
+        throw new Error("Client already exists");
+      }
+      const newClient = new Client(input);
+
+      // assign seller to client
+      newClient.seller = ctx.user.id;
+
+      try {
+        // Save Client in db
+        const result = await newClient.save();
+        console.log("Client created");
+        return result;
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    updateClient: async (_, { id, input }, ctx) => {
+      // check if client exists
+      let client = await Client.findById(id);
+      if (!client) {
+        throw new Error("Client not found");
+      }
+
+      // the seller who created the client is the only one who can update it
+      if (client.seller.toString() !== ctx.user.id) {
+        throw new Error("Not authorized");
+      }
+
+      // update client in db
+      client = await Client.findOneAndUpdate({ _id: id }, input, {
+        new: true,
+      });
+      return client;
+    },
+    deleteClient: async (_, { id }, ctx) => {
+      // check if client exists
+      const client = await Client.findById(id);
+      if (!client) {
+        throw new Error("Client not found");
+      }
+      // the seller who created the client is the only one who can delete it
+      if (client.seller.toString() !== ctx.user.id) {
+        throw new Error("Not authorized");
+      }
+      // delete client from db
+      await Client.findOneAndDelete({ _id: id });
+      return "Client deleted";
     },
   },
 };
