@@ -15,10 +15,9 @@ const createToken = (user, secret, expiresIn) => {
 // resolvers
 const resolvers = {
   Query: {
-    getUser: async (_, { token }) => {
+    getUser: async (_, {}, ctx) => {
       // must be the same secretKey as in createToken to verify the token
-      const userId = await jwt.verify(token, process.env.SECRET_KEY);
-      return userId;
+      return ctx.user;
     },
     getProducts: async () => {
       try {
