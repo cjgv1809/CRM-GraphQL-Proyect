@@ -52,13 +52,13 @@ const resolvers = {
       }
     },
     getClient: async (_, { id }, ctx) => {
-      // check if client exists
       const client = await Client.findById(id);
+      // check if client exists
       if (!client) {
         throw new Error("Client not found");
       }
       // the seller who created the client is the only one who can see it
-      if (client.seller.toString() !== ctx.user.id) {
+      if (client.seller.toString() !== ctx.user?.id) {
         throw new Error("Not authorized");
       }
       return client;
