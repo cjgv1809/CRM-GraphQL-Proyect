@@ -15,8 +15,10 @@ const createToken = (user, secret, expiresIn) => {
 // resolvers
 const resolvers = {
   Query: {
-    getUser: async (_, {}, ctx) => {
+    getUser: async (_, { token }, ctx) => {
       // must be the same secretKey as in createToken to verify the token
+      // const userId = await jwt.verify(token, process.env.SECRET_KEY);
+      // return userId;
       return ctx.user;
     },
     getProducts: async () => {
@@ -238,7 +240,7 @@ const resolvers = {
       }
 
       // the seller who created the client is the only one who can update it
-      if (client.seller.toString() !== ctx.user.id) {
+      if (client.seller.toString() !== ctx.user?.id) {
         throw new Error("Not authorized");
       }
 
@@ -255,7 +257,7 @@ const resolvers = {
         throw new Error("Client not found");
       }
       // the seller who created the client is the only one who can delete it
-      if (client.seller.toString() !== ctx.user.id) {
+      if (client.seller.toString() !== ctx.user?.id) {
         throw new Error("Not authorized");
       }
       // delete client from db
@@ -275,6 +277,7 @@ const resolvers = {
       }
 
       // check stock first using async operator
+      // async operator is used to iterate over an array
       for await (const item of input.order) {
         const { id } = item;
         const product = await Product.findById(id);
@@ -291,7 +294,7 @@ const resolvers = {
       const newOrder = new Order(input);
 
       // assign seller to order
-      newOrder.seller = ctx.user.id;
+      newOrder.seller = ctx.user?.id;
 
       try {
         // Save Order in db
